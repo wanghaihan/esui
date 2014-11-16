@@ -2,3 +2,5 @@
 dep/
 doc/api
 output/
+.DS_Store
+.swp

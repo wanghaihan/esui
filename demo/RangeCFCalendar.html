@@ -45,8 +45,9 @@
 <body>
     <h1 id="title">SearchBox</h1>
     <h2> 利用div标签初始化</h2>
-    <div data-ui-id="rcf-canlender" data-ui-type="RangeCFCalendar"></div>
-
+    <div data-ui-id="rcf-range-cf-calendar" data-ui-type="RangeCFCalendar"></div>
+    <div>基准时间范围:<input id="base-time-range"></div>
+    <div>对比时间范围:<input id="compare-time-range"></div>
 
 
     <script>
@@ -54,10 +55,12 @@
             [
                 'esui', 'esui/RangeCFCalendar'
             ],
-            function (ui, SearchBox) {
+            function (ui, RangeCFCalendar) {
                 ui.init(document.body);
-                var search = ui.get('rcf-canlender');
-                
+                var rangeCFCalendar = ui.get('rcf-range-cf-calendar');
+                rangeCFCalendar.on('change',function(e){
+                    document.getElmentByID('base-time-range')='d';
+                });
             }
         );
     </script>

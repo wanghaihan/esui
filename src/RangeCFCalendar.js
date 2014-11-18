@@ -50,20 +50,35 @@ define(
          * @override
          */
         RangeCFCalendar.prototype.initStructure = function() {
+            var me = this;
             // 如果主元素是输入元素，替换成`<div>`
-            if (lib.isInput(this.main)) {
-                this.helper.replaceMain();
+            if (lib.isInput(me.main)) {
+                me.helper.replaceMain();
             }
 
+            var addChild = function(child, childName) {
+                // 添加在Child列表中
+                me.addChild(child,childName);
+                // 渲染到main中
+                var childContainer = document.createElement('div');
+                me.helper.addPartClasses('inline-block', childContainer);
+                me.main.appendChild(childContainer);
+                if (typeof child.addChild === 'function') {
+                    child.appendTo(childContainer);
+                }
+                else {
+                    childContainer.appendChild(child);
+                }
+            };
             // 添加左侧日历
-            var rangeCalendar = ui.create('RangeCalendar', {});
-            rangeCalendar.appendTo(this.main);
-            this.addChild(rangeCalendar);
-
+            var baseCalendar = ui.create('RangeCalendar', {});
+            addChild(baseCalendar,'baseCalendar');
+            // 添加选择框
+            var isCompare = ui.create('CheckBox', {});
+            addChild(isCompare,'isCompare');
             // 添加右侧日历
-            var richCAlendar = ui.create('Calendar', {});
-            richCAlendar.appendTo(this.main);
-            this.addChild(richCAlendar);
+            var compareCalendar = ui.create('Calendar', {});
+            addChild(compareCalendar,'compareCalendar');
         };
 
         /**
@@ -72,20 +87,33 @@ define(
          * @protected
          * @override
          */
-        RangeCFCalendar.prototype.initEvents = function() {};
+        RangeCFCalendar.prototype.initEvents = function() {
+            for (var i = this.children.length - 1; i >= 0; --i) {
+                this.children[i].on('change', this.childChangeHandler);
+            }
+        };
 
         /**
          * 获取输入值
          *
-         * @return {string}
+         * @return {string} 输入值
          * @override
          */
         RangeCFCalendar.prototype.getValue = function() {
             var allChildren = this.Children;
             alert(allChildren.length);
+            return '';
         };
 
+        /**
+         * 子控件chang事件handler
+         * @param  {Event} e 事件对象
+         * @protected
+         */
+        RangeCFCalendar.prototype.childChangeHandler = function(e) {
+            // var textbox = this.getChild('baseCalendar');
 
+        };
 
         lib.inherits(RangeCFCalendar, Control);
         ui.register(RangeCFCalendar);

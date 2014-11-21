@@ -16,6 +16,34 @@ define(
 
         require('./RangeCalendar');
         require('./Calendar');
+        require('./FixedRangeCalendar');
+
+        function extendCalendarIntoFixedDays(calendar) {
+            var me = this;
+
+            calendar.initStructure = function() {
+                // 如果主元素是输入元素，替换成`<div>`
+                // 如果输入了非块级元素，则不负责
+                if (lib.isInput(this.main)) {
+                    this.helper.replaceMain();
+                }
+
+                var template = [
+                    '<div class="${classes}" id="${id}">${value}</div>',
+                    '<div class="${arrow}"></div>'
+                ];
+
+
+                this.main.innerHTML = lib.format(
+                    template.join(''), {
+                        id: this.helper.getId('text'),
+                        // 使用与左侧日历一致的样式
+                        classes: me.helper.getPartClassName('text'),
+                        arrow: me.helper.getPartClassName('arrow')
+                    }
+                );
+            };
+        }
 
         /**
          * 搜索框控件，由一个文本框和一个搜索按钮组成
@@ -58,7 +86,7 @@ define(
 
             var addChild = function(child, childName) {
                 // 添加在Child列表中
-                me.addChild(child,childName);
+                me.addChild(child, childName);
                 // 渲染到main中
                 var childContainer = document.createElement('div');
                 me.helper.addPartClasses('inline-block', childContainer);
@@ -72,13 +100,14 @@ define(
             };
             // 添加左侧日历
             var baseCalendar = ui.create('RangeCalendar', {});
-            addChild(baseCalendar,'baseCalendar');
+            addChild(baseCalendar, 'baseCalendar');
             // 添加选择框
             var isCompare = ui.create('CheckBox', {});
-            addChild(isCompare,'isCompare');
+            addChild(isCompare, 'isCompare');
             // 添加右侧日历
             var compareCalendar = ui.create('Calendar', {});
-            addChild(compareCalendar,'compareCalendar');
+            extendCalendarIntoFixedDays.call(me, compareCalendar);
+            addChild(compareCalendar, 'compareCalendar');
         };
 
         /**

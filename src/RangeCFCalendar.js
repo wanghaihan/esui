@@ -16,34 +16,7 @@ define(
 
         require('./RangeCalendar');
         require('./Calendar');
-        require('./FixedRangeCalendar');
-
-        function extendCalendarIntoFixedDays(calendar) {
-            var me = this;
-
-            calendar.initStructure = function() {
-                // 如果主元素是输入元素，替换成`<div>`
-                // 如果输入了非块级元素，则不负责
-                if (lib.isInput(this.main)) {
-                    this.helper.replaceMain();
-                }
-
-                var template = [
-                    '<div class="${classes}" id="${id}">${value}</div>',
-                    '<div class="${arrow}"></div>'
-                ];
-
-
-                this.main.innerHTML = lib.format(
-                    template.join(''), {
-                        id: this.helper.getId('text'),
-                        // 使用与左侧日历一致的样式
-                        classes: me.helper.getPartClassName('text'),
-                        arrow: me.helper.getPartClassName('arrow')
-                    }
-                );
-            };
-        }
+        require('./extension/FixedRangeCalendar');
 
         /**
          * 搜索框控件，由一个文本框和一个搜索按钮组成
@@ -55,6 +28,7 @@ define(
         function RangeCFCalendar(options) {
             Control.apply(this, arguments);
         }
+
 
         RangeCFCalendar.prototype.type = 'RangeCFCalendar';
 
@@ -105,8 +79,32 @@ define(
             var isCompare = ui.create('CheckBox', {});
             addChild(isCompare, 'isCompare');
             // 添加右侧日历
-            var compareCalendar = ui.create('Calendar', {});
-            extendCalendarIntoFixedDays.call(me, compareCalendar);
+            var compareCalendar = ui.create('Calendar', {
+                extensions: [ui.createExtension('FixedRangeCalendar', {})]
+            });
+
+             // var panel = new Label({ text: 'abc' });
+             // var delegateDOMEvents = ui.createExtension(
+             //     'Command',
+             //     {
+             //         eventTypes: ['click', 'keypress', 'keyup'],
+             //         useCapture: false
+             //     }
+             // );
+             // // 需主动调用attachTo方法
+             // delegateDomEvents.attachTo(panel);
+
+
+
+
+
+
+
+
+
+
+
+            // extendCalendarIntoFixedDays.call(me, compareCalendar);
             addChild(compareCalendar, 'compareCalendar');
         };
 

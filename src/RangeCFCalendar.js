@@ -11,6 +11,7 @@ define(
         var lib = require('./lib');
         var ui = require('esui');
         var Control = require('./Control');
+        var moment = require('moment');
 
         // var paint = require('./painters');
 
@@ -40,7 +41,29 @@ define(
          * @override
          */
         RangeCFCalendar.prototype.initOptions = function(options) {
-            var properties = {}; // todo: 扩展
+            var now = new Date();
+            var yesterday = new Date();
+            yesterday.setDate(now.getDate() - 1);
+            var properties = {
+                // 是否处于比较状态
+                isCompare: true,
+                // 日期天数
+                days: 1,
+                base: {
+                    begin: now,
+                    end: now
+                },
+                compared: {
+                    begin: yesterday,
+                    end: yesterday
+                }
+
+                // 测试
+                ,range: {
+                begin: new Date(2008, 10, 1),
+                end: new Date()
+                }
+            };
             lib.extend(properties, options);
             Control.prototype.initOptions.call(this, properties);
         };
@@ -67,45 +90,50 @@ define(
                 me.main.appendChild(childContainer);
                 if (typeof child.addChild === 'function') {
                     child.appendTo(childContainer);
-                }
-                else {
+                } else {
                     childContainer.appendChild(child);
                 }
             };
             // 添加左侧日历
-            var baseCalendar = ui.create('RangeCalendar', {});
+            var baseCalendar = ui.create('RangeCalendar', {
+                rawValue: {
+                    begin: this.base.begin,
+                    end: this.base.end
+                },
+                range: this.range
+            });
             addChild(baseCalendar, 'baseCalendar');
-            // 添加选择框
-            var isCompare = ui.create('CheckBox', {});
-            addChild(isCompare, 'isCompare');
+
+            // 添加比较选择框
+            var compareCheckBox = ui.create('CheckBox', {
+                title: '比较',
+                checked: this.isCompare
+            });
+            addChild(compareCheckBox, 'compareCheckBox');
+
             // 添加右侧日历
             var compareCalendar = ui.create('Calendar', {
-                extensions: [ui.createExtension('FixedRangeCalendar', {})]
+                extensions: [
+                    ui.createExtension('FixedRangeCalendar', {
+                        days: this.getDays()
+                    })
+                ],
+                rawValue: this.compared.begin,
+                orgRange: this.range
             });
+            addChild(compareCalendar, 'compareCalendar');
+            // 为了防止disable后,日历控件就不会显示文字
+            // 故初始化时如果需要disable,需要先render
+            if (!this.isCompare) {
+                compareCalendar.disable();
+            }
 
-             // var panel = new Label({ text: 'abc' });
-             // var delegateDOMEvents = ui.createExtension(
-             //     'Command',
-             //     {
-             //         eventTypes: ['click', 'keypress', 'keyup'],
-             //         useCapture: false
-             //     }
-             // );
-             // // 需主动调用attachTo方法
-             // delegateDomEvents.attachTo(panel);
-
-
-
-
-
-
-
-
-
-
+            // 右侧天数描述
+            var totalDays = ui.create('Label', {});
+            addChild(totalDays, 'totalDays');
+            this.refreshDays();
 
             // extendCalendarIntoFixedDays.call(me, compareCalendar);
-            addChild(compareCalendar, 'compareCalendar');
         };
 
         /**
@@ -115,9 +143,31 @@ define(
          * @override
          */
         RangeCFCalendar.prototype.initEvents = function() {
-            for (var i = this.children.length - 1; i >= 0; --i) {
-                this.children[i].on('change', this.childChangeHandler);
-            }
+            // for (var i = this.children.length - 1; i >= 0; --i) {
+            //     this.children[i].on('change', this.childChangeHandler);
+            // }
+            var me = this;
+
+            var baseCalendar = this.getChild('baseCalendar');
+            var compareCheckBox = this.getChild('compareCheckBox');
+            var compareCalendar = this.getChild('compareCalendar');
+            baseCalendar.on(
+                'change',
+                function(e) {
+                    me.base = e.target.getRawValue();
+                    me.refreshDays();
+                }
+            );
+            compareCheckBox.on(
+                'change',
+                function(e) {
+                    if (e.target.isChecked()) {
+                        compareCalendar.enable();
+                    } else {
+                        compareCalendar.disable();
+                    }
+                }
+            );
         };
 
         /**
@@ -130,6 +180,48 @@ define(
             var allChildren = this.Children;
             alert(allChildren.length);
             return '';
+        };
+
+        /**
+         * 判断当前是否处于对比日期状态
+         *
+         * @return {boolean} true代表处于对比状态
+         */
+        RangeCFCalendar.prototype.getIsCompare = function() {
+            return this.isCompare;
+        };
+
+        /**
+         * 获取天数
+         *
+         * @return {number} 天数
+         */
+        RangeCFCalendar.prototype.getDays = function() {
+            // 计算日期差值一定要确保是凌晨,以计算自然日
+            var begin = this.base.begin;
+            begin = new Date(
+                begin.getFullYear(),
+                begin.getMonth(),
+                begin.getDate());
+
+            var end = this.base.end;
+            end = new Date(
+                end.getFullYear(),
+                end.getMonth(),
+                end.getDate());
+
+            return moment(end).diff(moment(begin), 'days') + 1;
+        };
+
+
+        /**
+         * 更新天数
+         *
+         */
+        RangeCFCalendar.prototype.refreshDays = function() {
+            var days = this.getDays();
+            this.getChild('totalDays').setText('共' + days.toString() + '天');
+            this.getChild('compareCalendar').setDays(days);
         };
 
         /**

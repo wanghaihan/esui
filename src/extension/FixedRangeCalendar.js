@@ -12,6 +12,8 @@ define(
         var ui = require('../main');
         var Extension = require('../Extension');
         var u = require('underscore');
+        var moment = require('moment');
+        var DATE_SPLITER = ' 至 ';
 
         /**
          * 对日历控件的扩展
@@ -38,6 +40,8 @@ define(
 
             this.rawValue = date;
             updateDisplayText(this);
+            updateLayerText(this);
+
 
             /**
              * @event change
@@ -49,6 +53,8 @@ define(
             this.fire('change');
         }
 
+
+
         /**
          * 更新显示的文字
          *
@@ -58,40 +64,265 @@ define(
         function updateDisplayText(calendar) {
             // 更新主显示
             var textHolder = calendar.helper.getPart('text');
-            textHolder.innerHTML = u.escape(calendar.getValue());
+            if (textHolder) {
+                textHolder.innerHTML = u.escape(calendar.getValue());
+            }
         }
 
         /**
-         * 初始化DOM结构
+         * 更新layer的文字
+         *
+         * @param {Calendar} calendar 控件实例
+         * @ignore
          */
-        function initStructure() {
-            // 如果主元素是输入元素，替换成`<div>`
-            // 如果输入了非块级元素，则不负责
-            var thisHelper = this.helper;
-            if (lib.isInput(this.main)) {
-                thisHelper.replaceMain();
+        function updateLayerText(calendar) {
+            // 更新layer中的值
+            var rangeDate = calendar.getRawValue();
+            lib.g(calendar.layer.beginDomID).innerText =
+                calendar.stringifyValue(rangeDate.begin);
+            lib.g(calendar.layer.endDomID).innerText =
+                calendar.stringifyValue(rangeDate.end);
+            lib.g(calendar.layer.daysDomID).innerText =
+                calendar.days;
+        }
+
+        /**
+         * canlendar 需要扩展或重写的对象
+         * @type {object}
+         */
+        var calendarPrototype = {
+            /**
+             * 初始化DOM结构
+             *
+             * @protected
+             * @override
+             */
+            initStructure: function() {
+                // 如果主元素是输入元素，替换成`<div>`
+                // 如果输入了非块级元素，则不负责
+                var thisHelper = this.helper;
+                if (lib.isInput(this.main)) {
+                    thisHelper.replaceMain();
+                }
+
+                var template = [
+                    '<div class="${classes}" id="${id}">${value}</div>',
+                    '<div class="${arrow}"></div>'
+                ];
+
+
+                this.main.innerHTML = lib.format(
+                    template.join(''), {
+                        id: thisHelper.getId('text'),
+                        // 使用与左侧日历一致的样式
+                        classes: thisHelper.getPartClassName('fixedRange-text'),
+                        arrow: thisHelper.getPartClassName('fixedRange-arrow')
+                    }
+                );
+
+                // 与range calendar的外贸保持一致
+                var prefix = ui.getConfig('uiClassPrefix');
+                lib.removeClass(this.main, prefix + '-calendar');
+                lib.addClass(this.main, prefix + '-rangecalendar');
+            },
+
+            /**
+             * 获取输入控件的值的字符串形式
+             *
+             * @return {string} 格式为:xx 至 xx.为空时为'请选择'
+             */
+            getValue: function() {
+                var rangeRawValue = this.getRawValue();
+                if (rangeRawValue === null) {
+                    return '请选择';
+                }
+                return this.stringifyValue(rangeRawValue.begin) + DATE_SPLITER + this.stringifyValue(rangeRawValue.end);
+            },
+
+            /**
+             * 设置输入控件的值
+             *
+             * @param {string} value 输入控件的值
+             */
+            setValue: function(value) {
+                var rangeValues = value.split(DATE_SPLITER);
+                var rawValue = {};
+                rawValue.begin = this.parseValue(rangeValues[0]);
+                rawValue.end = this.parseValue(rangeValues[2]);
+                this.setRawValue(rawValue);
+            },
+
+            /**
+             * 获取输入控件的原始值
+             *
+             * @return {Object} 返回包含begin和end字段的日期范围
+             */
+            getRawValue: function() {
+                if (this.rawValue === null) {
+                    return null;
+                }
+                // 为了维持日历的功能,内部的rawValue采用了begin字段.
+                // 但是对外暴漏的是begin 和 end的两个字段的对象
+                var rangeRawValue = {};
+                rangeRawValue.begin = this.rawValue;
+                rangeRawValue.end = this.getEndDay();
+                return rangeRawValue;
+            },
+
+            /**
+             * 设置输入控件的原始值,没有验证是否处在可选范围内
+             *
+             * @param {Object} rangeRawValue
+             * 输入控件的原始值,只考虑begin字段. end字段根据天数自动计算
+             */
+            setRawValue: function(rangeRawValue) {
+                if (rangeRawValue == null) {
+                    this.setProperties({
+                        rawValue: null
+                    });
+                    this.setDays(1);
+                } else {
+                    this.setProperties({
+                        rawValue: rangeRawValue.begin
+                    });
+                }
+                updateDisplayText(this);
+            },
+
+            /**
+             * 获取结束日期
+             * @return {Date} 结束日期
+             */
+            getEndDay: function() {
+                if (this.rawValue === null) {
+                    return null;
+                }
+                // 为了减小对calendar的修改
+                // 故每次获取end时采用计算方式,而非添加一个需要维护的字段
+                return moment(this.rawValue)
+                    .add('day', (this.days - 1)).toDate();
+            },
+
+            /**
+             * 设置天数
+             * @param {number} days 天数
+             */
+            setDays: function(days) {
+                this.days = days;
+                updateDisplayText(this);
+                this.setRange(this.getBeginRange());
+                this.ensureInRange();
+            },
+
+            /**
+             * 获取起始时间的日期可选区间
+             * @param {meta.DateRange} 原始日期可选区间
+             * @return {meta.DateRange} 起始日期的可选区间
+             */
+            getBeginRange: function() {
+                var beginRange = {};
+                beginRange.begin = this.orgRange.begin;
+                beginRange.end = moment(this.orgRange.end)
+                    .subtract('day', (this.days - 1)).toDate();
+                return beginRange;
+            },
+
+            /**
+             * 设置日期可选区间
+             *
+             * @param {meta.DateRange} range 起始日期的可选区间
+             */
+            setRange: function(range) {
+                this.setProperties({
+                    'range': range
+                });
+                this.ensureInRange();
+            },
+
+            /**
+             * 确保当前的值处在可选范围的措施.
+             * 设置monthView的range.
+             * 如果更改导致原始值超出了范围,则将rawValue值置空
+             */
+            ensureInRange: function() {
+                if (this.rawValue > this.range) {
+                    this.setRawValue(null);
+                }
             }
 
-            var template = [
-                '<div class="${classes}" id="${id}">${value}</div>',
-                '<div class="${arrow}"></div>'
-            ];
+        };
+
+        /**
+         * layter 需要扩展或重写的对象
+         * @type {object}
+         */
+        var layerPrototype = {
+            /**
+             * 渲染层内容 用于重写this.layer.render
+             *
+             * @param {HTMLElement} element 层元素
+             * @abstract
+             */
+            render: function(element) {
+                var thisHelper = this.control.helper;
+                var template = [
+                    '<div class="${classPanel}">',
+                    '<div class="${classItem} ${classTime}">起始时间 : ',
+                    '<span id="${beginDomID}"></span>',
+                    '</div>',
+                    '<div data-ui-type="MonthView"',
+                    'data-ui-child-name="monthView"></div>',
+                    '<div class="${classItem} ${classTime}">结束时间 : ',
+                    '<span id="${endDomID}"></span>',
+                    '</div>',
+                    '<div class="${classItem}">时间段 : ',
+                    '<span id="${daysDomID}"></span> 天',
+                    '</div>',
+                    '</div>'
+                ];
+                // 将ID放到当前对象上以后后期更新数据是用
+                this.beginDomID = thisHelper.getId('begin');
+                this.endDomID = thisHelper.getId('end');
+                this.daysDomID = thisHelper.getId('days');
+
+                element.innerHTML = lib.format(
+                    template.join(''), {
+                        classPanel: thisHelper
+                            .getPartClassName('fixedRange-panel'),
+                        classItem: thisHelper
+                            .getPartClassName('fixedRange-item'),
+                        classTime: thisHelper
+                            .getPartClassName('fixedRange-time'),
+                        beginDomID: this.beginDomID,
+                        endDomID: this.endDomID,
+                        daysDomID: this.daysDomID
+                    }
+                );
+
+                document.body.appendChild(element);
+
+                var calendar = this.control;
+                calendar.helper.initChildren(element);
+
+                // 更新层中的描述文字
+                updateLayerText(calendar);
+
+                var monthView = calendar.getChild('monthView');
+                monthView.setProperties({
+                    'rawValue': calendar.rawValue,
+                    'range': calendar.range
+                });
+                monthView.on('change', syncMonthViewValue, calendar);
 
 
-            this.main.innerHTML = lib.format(
-                template.join(''), {
-                    id: thisHelper.getId('text'),
-                    // 使用与左侧日历一致的样式
-                    classes: thisHelper.getPartClassName('fixedRange-text'),
-                    arrow: thisHelper.getPartClassName('fixedRange-arrow')
+                if (calendar.autoHideLayer) {
+                    monthView.on(
+                        'itemclick',
+                        u.bind(calendar.layer.toggle, calendar.layer)
+                    );
                 }
-            );
-
-            // 与range calendar的外贸保持一致
-            var prefix = ui.getConfig('uiClassPrefix');
-            lib.removeClass(this.main, prefix + '-calendar');
-            lib.addClass(this.main, prefix + '-rangecalendar');
-        }
+            }
+        };
 
         /**
          * 指定扩展类型，始终为`"FixedRangeCalendar"`
@@ -107,37 +338,15 @@ define(
          */
         FixedRangeCalendar.prototype.activate = function() {
             var target = this.target;
-            target.initStructure = initStructure;
+            lib.extend(target, calendarPrototype);
+
+            // 将扩展初始化时传来的天数设置到控件中
+            target.setDays(this.days);
+
+            // 扩展layer的方法
             target.on('afterrender', function() {
-                this.layer.render = function(element) {
-                    document.body.appendChild(element);
-                    element.innerHTML = '<div>起始时间:</div>'
-                    + '<div data-ui-type="MonthView" '
-                    + 'data-ui-child-name="monthView"></div>'
-                    + '<div>结束时间:</div>'
-                    + '<div>时间段:</div>';
-
-                    var calendar = this.control;
-                    calendar.helper.initChildren(element);
-
-                    var monthView = calendar.getChild('monthView');
-                    monthView.setProperties({
-                        'rawValue': calendar.rawValue,
-                        'range': calendar.range
-                    });
-                    monthView.on('change', syncMonthViewValue, calendar);
-
-
-                    if (calendar.autoHideLayer) {
-                        monthView.on(
-                            'itemclick',
-                            u.bind(calendar.layer.toggle, calendar.layer)
-                        );
-                    }
-                };
-
+                lib.extend(this.layer, layerPrototype);
             });
-
             Extension.prototype.activate.apply(this, arguments);
         };
 

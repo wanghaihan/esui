@@ -11,6 +11,11 @@
     .inline-block ();
     padding:0 2px;
     vertical-align: middle;
+    font-size:12px;
+    .ui-checkbox span{
+        float: left;
+        margin: 0 5px;
+    }
 }
 .@{ui-class-prefix}-rangecfcalendar-text,
 .@{ui-class-prefix}-calendar-fixedRange-text
@@ -28,4 +33,20 @@
     width: 16px;
     .linear-gradient-background-with-image (
         top, #ffffff, #f6f6f6, "../img/esui-combo-arrow.png", left, -9px, #f3f3f3);
+}
+
+.@{ui-class-prefix}-calendar-fixedRange-panel {
+    width: 227px;
+    border:1px solid #a9adb6;
+    padding: 0 8px;
+    .@{ui-class-prefix}-calendar-fixedRange-item {
+        font-size:12px;
+        padding: 3px 0;
+    }
+    .@{ui-class-prefix}-calendar-fixedRange-time {
+        font-weight:bold;
+    }
+    .ui-monthview{
+    width:227px;
+    }
 }

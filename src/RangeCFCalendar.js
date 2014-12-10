@@ -316,7 +316,7 @@ define(
                 if (this.isCompare) {
                     compareCalendar.enable();
                     // 开启时要重设一下天数
-                    compareCalendar.setDays(days);
+                    compareCalendar.setDays(this.getDays());
                 }
                 else {
                     compareCalendar.disable();

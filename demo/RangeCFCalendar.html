@@ -64,15 +64,15 @@
             [
                 'esui', 'esui/RangeCFCalendar'
             ],
-            function (ui, RangeCFCalendar) {
+            function(ui, RangeCFCalendar) {
                 ui.init(document.body);
                 var rangeCFCalendar = ui.get('rcf-range-cf-calendar');
-                rangeCFCalendar.on('change',function(e){
-                   document.getElementById('change-time').value = (new Date()).toTimeString();
-                   var textValue = rangeCFCalendar.getValue();
-                   document.getElementById('base-time-range').value = textValue.base;
-                   document.getElementById('compare-time-range').value = textValue.compared;
-
+                rangeCFCalendar.on('change', function(e) {
+                    document.getElementById('change-time').value = (new Date()).toTimeString();
+                    var textValue = rangeCFCalendar.getValue();
+                    document.getElementById('base-time-range').value = textValue.base;
+                    document.getElementById('compare-time-range').value = textValue.compared ? textValue.compared :
+                        '';
                 });
             }
         );

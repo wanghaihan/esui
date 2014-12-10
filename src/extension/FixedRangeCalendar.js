@@ -13,7 +13,11 @@ define(
         var Extension = require('../Extension');
         var u = require('underscore');
         var moment = require('moment');
+        var helper = require('../controlHelper');
+
         var DATE_SPLITER = ' 至 ';
+        // 用一个肯定在范围之外的日期来让monthView表现得像没有选值一样.
+        var NULL_DATE = new Date(2050, 1, 1);
 
         /**
          * 对日历控件的扩展
@@ -33,24 +37,12 @@ define(
         function syncMonthViewValue() {
             var monthView = this.getChild('monthView');
             var date = monthView.getRawValue();
-
-            if (!date) {
+            if (!date || date >= NULL_DATE) {
                 return;
             }
-
-            this.rawValue = date;
-            updateDisplayText(this);
-            updateLayerText(this);
-
-
-            /**
-             * @event change
-             *
-             * 值发生变化时触发
-             *
-             * @member Calendar
-             */
-            this.fire('change');
+            this.setRawValue({
+                begin: date
+            });
         }
 
 
@@ -70,7 +62,7 @@ define(
         }
 
         /**
-         * 更新layer的文字
+         * 更新layer中的文字
          *
          * @param {Calendar} calendar 控件实例
          * @ignore
@@ -78,12 +70,20 @@ define(
         function updateLayerText(calendar) {
             // 更新layer中的值
             var rangeDate = calendar.getRawValue();
-            lib.g(calendar.layer.beginDomID).innerText =
-                calendar.stringifyValue(rangeDate.begin);
-            lib.g(calendar.layer.endDomID).innerText =
-                calendar.stringifyValue(rangeDate.end);
-            lib.g(calendar.layer.daysDomID).innerText =
-                calendar.days;
+            var layer = calendar.layer;
+            if (layer) {
+                var daysDom = lib.g(layer.daysDomID);
+                // 只要拥有了一下任意一个dom, 则说明layer已经被render
+                if (daysDom) {
+                    lib.g(layer.beginDomID).innerText = rangeDate === null ?
+                        '' : calendar.stringifyValue(rangeDate.begin);
+                    lib.g(layer.endDomID).innerText = rangeDate === null ?
+                        '' : calendar.stringifyValue(rangeDate.end);
+                    daysDom.innerText =
+                        calendar.days;
+                }
+            }
+
         }
 
         /**
@@ -136,7 +136,8 @@ define(
                 if (rangeRawValue === null) {
                     return '请选择';
                 }
-                return this.stringifyValue(rangeRawValue.begin) + DATE_SPLITER + this.stringifyValue(rangeRawValue.end);
+                return this.stringifyValue(rangeRawValue.begin) + DATE_SPLITER + this.stringifyValue(
+                    rangeRawValue.end);
             },
 
             /**
@@ -180,13 +181,22 @@ define(
                     this.setProperties({
                         rawValue: null
                     });
-                    this.setDays(1);
                 } else {
                     this.setProperties({
                         rawValue: rangeRawValue.begin
                     });
                 }
-                updateDisplayText(this);
+                //   updateDisplayText(this);
+
+                updateLayerText(this);
+                /**
+                 * @event change
+                 *
+                 * 值发生变化时触发
+                 *
+                 * @member Calendar
+                 */
+                this.fire('change');
             },
 
             /**
@@ -208,15 +218,15 @@ define(
              * @param {number} days 天数
              */
             setDays: function(days) {
-                this.days = days;
-                updateDisplayText(this);
-                this.setRange(this.getBeginRange());
-                this.ensureInRange();
+                if (days !== this.days) {
+                    this.days = days;
+                    updateLayerText(this);
+                    this.setRange(this.getBeginRange());
+                }
             },
 
             /**
              * 获取起始时间的日期可选区间
-             * @param {meta.DateRange} 原始日期可选区间
              * @return {meta.DateRange} 起始日期的可选区间
              */
             getBeginRange: function() {
@@ -245,7 +255,7 @@ define(
              * 如果更改导致原始值超出了范围,则将rawValue值置空
              */
             ensureInRange: function() {
-                if (this.rawValue > this.range) {
+                if (this.rawValue > this.range.end) {
                     this.setRawValue(null);
                 }
             }
@@ -257,6 +267,28 @@ define(
          * @type {object}
          */
         var layerPrototype = {
+            toggle: function() {
+                var element = this.getElement();
+                if (!element || this.control.helper.isPart(element, 'layer-hidden')) {
+                    // 展示之前先跟main同步
+                    var calendar = this.control;
+                    var monthView = calendar.getChild('monthView');
+                    var monthViewProperties = {
+                        'rawValue': calendar.rawValue,
+                        'range': calendar.range
+                    };
+                    if (calendar.rawValue == null) {
+                        var now = new Date();
+                        monthViewProperties.rawValue = NULL_DATE;
+                        monthViewProperties.year = now.getFullYear();
+                        monthViewProperties.month = now.getMonth() + 1;
+                    }
+                    monthView.setProperties(monthViewProperties);
+                    this.show();
+                } else {
+                    this.hide();
+                }
+            },
             /**
              * 渲染层内容 用于重写this.layer.render
              *
@@ -304,7 +336,6 @@ define(
                 var calendar = this.control;
                 calendar.helper.initChildren(element);
 
-                // 更新层中的描述文字
                 updateLayerText(calendar);
 
                 var monthView = calendar.getChild('monthView');
@@ -313,6 +344,13 @@ define(
                     'range': calendar.range
                 });
                 monthView.on('change', syncMonthViewValue, calendar);
+
+                // 将mouseview的点击行为修正为hover行为. 此次依赖mouseview的initEvents方法实现
+                var monthMain = monthView.helper.getPart('monthMain');
+                var mousemoveHandler = monthView.domEvents[monthMain._esuiDOMEvent].click.queue[0].handler;
+                helper.addDOMEvent(monthView, monthMain, 'mousemove', mousemoveHandler);
+                helper.removeDOMEvent(monthView, monthMain, 'click', mousemoveHandler);
+
 
 
                 if (calendar.autoHideLayer) {

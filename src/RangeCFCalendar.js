@@ -20,6 +20,26 @@ define(
         require('./extension/FixedRangeCalendar');
 
         /**
+         * 检查两个时间范围是否相当
+         * @param  {Object}  newRange 结构类似于{begin:Date,end:Date}
+         * @param  {Object}  oldRange 结构类似于{begin:Date,end:Date}
+         * @return {boolean} true 代表以改变
+         */
+        function isRangeChanged(newRange, oldRange) {
+            if (newRange === oldRange) {
+                return false;
+            }
+            if (newRange == null || oldRange == null) {
+                return true;
+            }
+            if (newRange.begin.getTime() === oldRange.begin.getTime()
+                && newRange.end.getTime() === oldRange.end.getTime()) {
+                return false;
+            }
+            return true;
+        }
+
+        /**
          * 搜索框控件，由一个文本框和一个搜索按钮组成
          *
          * @extends Control
@@ -47,8 +67,6 @@ define(
             var properties = {
                 // 是否处于比较状态
                 isCompare: true,
-                // 日期天数
-                days: 1,
                 base: {
                     begin: now,
                     end: now
@@ -56,17 +74,23 @@ define(
                 compared: {
                     begin: yesterday,
                     end: yesterday
-                }
+                },
 
-                // 测试
-                ,range: {
-                begin: new Date(2008, 10, 1),
-                end: new Date()
+                // 测试--------------
+                range: {
+                    begin: new Date(2008, 10, 1),
+                    end: new Date()
                 }
             };
             lib.extend(properties, options);
             Control.prototype.initOptions.call(this, properties);
         };
+
+        /**
+         * 外抛change事件锁,以防止控件的联动更改导致一次操作多次事件外抛
+         * @type {boolean}
+         */
+        RangeCFCalendar.prototype._changeLocked = false;
 
         /**
          * 初始化DOM结构
@@ -90,7 +114,8 @@ define(
                 me.main.appendChild(childContainer);
                 if (typeof child.addChild === 'function') {
                     child.appendTo(childContainer);
-                } else {
+                }
+                else {
                     childContainer.appendChild(child);
                 }
             };
@@ -123,15 +148,16 @@ define(
             });
             addChild(compareCalendar, 'compareCalendar');
             // 为了防止disable后,日历控件就不会显示文字
-            // 故初始化时如果需要disable,需要先render
+            // 故如果配置里要求初始化时需要disable,需要先render,再disable
             if (!this.isCompare) {
                 compareCalendar.disable();
             }
 
             // 右侧天数描述
-            var totalDays = ui.create('Label', {});
+            var totalDays = ui.create('Label', {
+                text: this.getDaysText()
+            });
             addChild(totalDays, 'totalDays');
-            this.refreshDays();
 
             // extendCalendarIntoFixedDays.call(me, compareCalendar);
         };
@@ -143,9 +169,6 @@ define(
          * @override
          */
         RangeCFCalendar.prototype.initEvents = function() {
-            // for (var i = this.children.length - 1; i >= 0; --i) {
-            //     this.children[i].on('change', this.childChangeHandler);
-            // }
             var me = this;
 
             var baseCalendar = this.getChild('baseCalendar');
@@ -154,41 +177,67 @@ define(
             baseCalendar.on(
                 'change',
                 function(e) {
-                    me.base = e.target.getRawValue();
-                    me.refreshDays();
+                    me.setProperties({base: e.target.getRawValue()});
                 }
             );
             compareCheckBox.on(
                 'change',
                 function(e) {
-                    if (e.target.isChecked()) {
-                        compareCalendar.enable();
-                    } else {
-                        compareCalendar.disable();
-                    }
+                    me.setProperties({isCompare: e.target.isChecked()});
+                }
+            );
+            compareCalendar.on(
+                'change',
+                function(e) {
+                    me.setProperties({compared: e.target.getRawValue()});
                 }
             );
         };
 
         /**
-         * 获取输入值
+         * 获取日期范围
          *
-         * @return {string} 输入值
+         * @return {Object}
+         * 对比状态下结构为:
+         * {
+         *     base: {begin:Date,end:Date},
+         *     compared: {begin:Date,end:Date},
+         *     isCompare: true
+         * }
+         * 非对比状态下结构为:
+         * {
+         *     base: {begin:Date,end:Date},
+         *     isCompare: false
+         * }
          * @override
          */
-        RangeCFCalendar.prototype.getValue = function() {
-            var allChildren = this.Children;
-            alert(allChildren.length);
-            return '';
+        RangeCFCalendar.prototype.getRawValue = function() {
+            var rawValue = {
+                base: this.base,
+                isCompare: false
+            };
+            // 即使在对比状态, 如果右侧日历为空,即显示为'请选择',也要对外表现为非对比状态
+            if (this.isCompare && this.compared != null) {
+                rawValue.isCompare = true;
+                rawValue.compared = this.compared;
+            }
+            return rawValue;
         };
 
         /**
-         * 判断当前是否处于对比日期状态
-         *
-         * @return {boolean} true代表处于对比状态
+         * 获取日期话术
+         * @return {[type]} [description] {Object}
+         * {base:'2014-12-12 至 2014-12-13',compared:'2014-12-10 至 2014-12-11'}
          */
-        RangeCFCalendar.prototype.getIsCompare = function() {
-            return this.isCompare;
+        RangeCFCalendar.prototype.getValue = function() {
+            var reValue = {
+                base: this.getChild('baseCalendar').helper.getPart('text').innerText
+            };
+            // 即使在对比状态, 如果右侧日历为空,即显示为'请选择',也要对外表现为非对比状态
+            if (this.isCompare && this.compared != null) {
+                reValue.compared = this.getChild('compareCalendar').helper.getPart('text').innerText;
+            }
+            return reValue;
         };
 
         /**
@@ -215,24 +264,95 @@ define(
 
 
         /**
-         * 更新天数
-         *
+         * 获取天数话术
+         * @param {?number} days 数字天数.如果不传则自动计算
+         * @return {string} 共n天
          */
-        RangeCFCalendar.prototype.refreshDays = function() {
-            var days = this.getDays();
-            this.getChild('totalDays').setText('共' + days.toString() + '天');
-            this.getChild('compareCalendar').setDays(days);
+        RangeCFCalendar.prototype.getDaysText = function(days) {
+            if (days == null) {
+                days = this.getDays();
+            }
+            return '共' + days.toString() + '天';
+        };
+
+
+
+        /**
+         * 批量设置控件的属性值
+         *
+         * @param {Object} properties 属性值集合
+         * @override
+         * @return {Object} `properties`参数中确实变更了的那些属性
+         */
+        RangeCFCalendar.prototype.setProperties = function(properties) {
+            var changes = Control.prototype.setProperties.call(
+                this, properties);
+            if (this.helper.isInStage('NEW')) {
+                return changes;
+            }
+
+            var compareCalendar = this.getChild('compareCalendar');
+            var isBaseChanged = changes.hasOwnProperty('base');
+            var isIsCompareChanged = changes.hasOwnProperty('isCompare');
+            // 确保只由原始触发的change向外抛出事件.以避免控件多联动导致的多次外抛.
+            var isFireChange = false;
+            if (!this._changeLocked) {
+                this._changeLocked = true;
+                isFireChange = true;
+            }
+
+            // 左侧base日历日期有变化
+            if (isBaseChanged) {
+                var days = this.getDays();
+                this.getChild('totalDays').setText(this.getDaysText(days));
+                if (this.isCompare) {
+                    // 为了保证非比较状态下, 用户的历史对比日期是安全的,只在比较状态下给右侧对比控件设置天数
+                    compareCalendar.setDays(days);
+                }
+            }
+
+            // 对比勾选框有变化
+            if (isIsCompareChanged) {
+                if (this.isCompare) {
+                    compareCalendar.enable();
+                    // 开启时要重设一下天数
+                    compareCalendar.setDays(days);
+                }
+                else {
+                    compareCalendar.disable();
+                }
+            }
+
+            // 处理外内部改动后,外抛change事件
+            if (isFireChange) {
+                this._changeLocked = false;
+                // 如果是勾选了对比,但是右侧为请选择,则相当于没有勾选对比.故没必要抛出change事件
+                if (!(isIsCompareChanged && compareCalendar.getRawValue() === null)) {
+                    this.fire('change', {rawValue: this.getRawValue()});
+                }
+            }
+            return changes;
         };
 
         /**
-         * 子控件chang事件handler
-         * @param  {Event} e 事件对象
+         * 判断属性新值是否有变化，内部用于`setProperties`方法
+         *
+         * @param {string} propertyName 属性名称
+         * @param {Mixed} newValue 新值
+         * @param {Mixed} oldValue 旧值
+         * @return {boolean}
+         * @override
          * @protected
          */
-        RangeCFCalendar.prototype.childChangeHandler = function(e) {
-            // var textbox = this.getChild('baseCalendar');
-
-        };
+        RangeCFCalendar.prototype.isPropertyChanged =
+            function(propertyName, newValue, oldValue) {
+                if (propertyName === 'base' || propertyName === 'compared') {
+                    // 比较两个时间范围
+                    return isRangeChanged(newValue, oldValue);
+                }
+                // 默认实现将值和当前新值进行简单比对
+                return oldValue !== newValue;
+            };
 
         lib.inherits(RangeCFCalendar, Control);
         ui.register(RangeCFCalendar);

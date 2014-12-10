@@ -41,13 +41,22 @@
         <script src="jquery-1.9.1.min.js"></script>
         <link rel="stylesheet" href="demo.css" />
         <link rel="stylesheet" href="../src/css/main.css" />
+        <style>
+            .info-input{
+                width: 300px;
+                font-size: 14px;
+            }
+
+        </style>
 </head>
 <body>
     <h1 id="title">RangeCFCalendar</h1>
     <h2> 利用div标签初始化</h2>
+    <div>改动触发时间:<input id="change-time" class="info-input" /></div>
+    <div>基准时间范围:<input id="base-time-range" class="info-input" /></div>
+    <div>对比时间范围:<input id="compare-time-range" class="info-input" /></div>
     <div data-ui-id="rcf-range-cf-calendar" data-ui-type="RangeCFCalendar"></div>
-    <div>基准时间范围:<input id="base-time-range"></div>
-    <div>对比时间范围:<input id="compare-time-range"></div>
+
 
 
     <script>
@@ -59,7 +68,11 @@
                 ui.init(document.body);
                 var rangeCFCalendar = ui.get('rcf-range-cf-calendar');
                 rangeCFCalendar.on('change',function(e){
-                    document.getElmentByID('base-time-range')='d';
+                   document.getElementById('change-time').value = (new Date()).toTimeString();
+                   var textValue = rangeCFCalendar.getValue();
+                   document.getElementById('base-time-range').value = textValue.base;
+                   document.getElementById('compare-time-range').value = textValue.compared;
+
                 });
             }
         );

@@ -6,6 +6,7 @@
  * @file 时间长度已定的时间区间选择控件
  * @author Haihan Wang(wanghaihan@baidu.com)
  */
+
 define(
     function(require) {
         var lib = require('../lib');

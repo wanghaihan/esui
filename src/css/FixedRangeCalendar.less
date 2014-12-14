@@ -1,0 +1,92 @@
+ /**
+ * ESUI (Enterprise Simple UI)
+ * Copyright 2013 Baidu Inc. All rights reserved.
+ *
+ * @file 输入日历样式
+ * @author Haihan Wang(wanghaihan@baidu.com)
+ */
+@import "mixin.less";
+@import "variable.less";
+.@{ui-class-prefix}-fixedrangecalendar {
+    display: block;
+    border: 1px solid #a9adb6;
+    width: 235px;
+    height: 23px;
+    line-height: 23px;
+    padding-left: 8px;;
+    font-size: 12px;
+    cursor: pointer;
+    background-color: white;
+    .linear-gradient-background (top, #ffffff, #f6f6f6);
+    .border-radius (3px, 3px, 3px, 3px);
+    .user-select();
+}
+
+.@{ui-class-prefix}-fixedrangecalendar-panel {
+    width: 227px;
+    border:1px solid #a9adb6;
+    padding: 0 8px;
+    .@{ui-class-prefix}-fixedrangecalendar-item {
+        font-size:12px;
+        padding: 3px 0;
+    }
+    .@{ui-class-prefix}-fixedrangecalendar-time {
+        font-weight:bold;
+    }
+    .ui-monthview{
+    width:227px;
+    }
+}
+
+.@{ui-class-prefix}-fixedrangecalendar-text {
+    padding-left:3px;
+    float:left;
+}
+
+.@{ui-class-prefix}-fixedrangecalendar:hover,
+.@{ui-class-prefix}-fixedrangecalendar:active {
+    border-color: #a9adb6;
+}
+
+.@{ui-class-prefix}-fixedrangecalendar-arrow {
+    float: right;
+    height: 16px;
+    margin-top: 3px;
+    margin-right: 5px;
+    width: 16px;
+    .linear-gradient-background-with-image (
+        top, #ffffff, #f6f6f6, "../img/esui-combo-arrow.png", left, -9px, #f3f3f3);
+}
+.@{ui-class-prefix}-fixedrangecalendar-layer {
+    background: #fff;
+    width: 210px;
+    -moz-user-select: none;
+    -webkit-user-select: none;
+}
+.@{ui-class-prefix}-fixedrangecalendar-layer-hidden {
+    display: none;
+}
+
+.@{ui-class-prefix}-fixedrangecalendar-disabled,
+.@{ui-class-prefix}-fixedrangecalendar-read-only {
+    color: #999;
+    border-color: #D8D8D8;
+}
+
+/** 验证 */
+.@{ui-class-prefix}-fixedrangecalendar-validity-invalid {
+    border: 1px solid red;
+}
+.@{ui-class-prefix}-fixedrangecalendar-validity-label {
+    display:block;
+    margin-top: 5px;
+}
+.@{ui-class-prefix}-fixedrangecalendar-validity-label-invalid {
+    .background(url(../img/esui-icon-alert.png), no-repeat, 15px, center, #FEDBDC);
+    border: 1px solid #F0CCCC;
+    color: #dd6767;
+    padding-left: 50px;
+}
+
+
+
